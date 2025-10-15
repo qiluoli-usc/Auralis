@@ -7,9 +7,19 @@ from typing import Any, Dict
 class ValidationError(Exception):
     """Raised when validation fails."""
 
+    def __init__(self, message: str, path: str):
+        super().__init__(message)
+        self.message = message
+        self.path = path
+
 
 class SchemaError(Exception):
     """Raised when the schema contains unsupported constructs."""
+
+    def __init__(self, message: str, path: str):
+        super().__init__(message)
+        self.message = message
+        self.path = path
 
 
 _SUPPORTED_TYPES = {"object", "array", "number", "integer", "string"}
@@ -37,7 +47,7 @@ def _validate(instance: Any, schema: Dict[str, Any], path: str) -> None:
     if allowed is not None:
         unknown = allowed - _SUPPORTED_TYPES
         if unknown:
-            raise SchemaError(f"Unsupported schema type(s) {unknown} at {path}")
+            raise SchemaError(f"Unsupported schema type(s) {unknown}", path)
 
         if "object" in allowed and isinstance(instance, dict):
             pass
@@ -50,16 +60,16 @@ def _validate(instance: Any, schema: Dict[str, Any], path: str) -> None:
         elif "string" in allowed and isinstance(instance, str):
             pass
         else:
-            raise ValidationError(f"Type mismatch at {path}: expected {allowed}, got {type(instance).__name__}")
+            raise ValidationError(f"Type mismatch: expected {allowed}, got {type(instance).__name__}", path)
 
     if "enum" in schema and instance not in schema["enum"]:
-        raise ValidationError(f"Value {instance!r} not in enum at {path}")
+        raise ValidationError(f"Value {instance!r} not in enum", path)
 
     if isinstance(instance, (int, float)) and not isinstance(instance, bool):
         if "minimum" in schema and instance < schema["minimum"]:
-            raise ValidationError(f"Value {instance} < minimum {schema['minimum']} at {path}")
+            raise ValidationError(f"Value {instance} < minimum {schema['minimum']}", path)
         if "maximum" in schema and instance > schema["maximum"]:
-            raise ValidationError(f"Value {instance} > maximum {schema['maximum']} at {path}")
+            raise ValidationError(f"Value {instance} > maximum {schema['maximum']}", path)
 
     is_object = isinstance(instance, dict)
     if (schema.get("type") == "object") or (allowed and "object" in allowed and is_object):
@@ -69,21 +79,32 @@ def _validate(instance: Any, schema: Dict[str, Any], path: str) -> None:
 
         for key in required:
             if key not in instance:
-                raise ValidationError(f"Missing required property '{key}' at {path}")
+                raise ValidationError(f"Missing required property '{key}'", path)
 
         for key, value in instance.items():
             if key in properties:
                 _validate(value, properties[key], f"{path}.{key}")
             elif additional_properties is False:
-                raise ValidationError(f"Unexpected property '{key}' at {path}")
+                raise ValidationError(f"Unexpected property '{key}'", path)
 
     is_array = isinstance(instance, list)
     if (schema.get("type") == "array") or (allowed and "array" in allowed and is_array):
         min_items = schema.get("minItems")
         if min_items is not None and len(instance) < min_items:
-            raise ValidationError(f"Array at {path} shorter than minItems={min_items}")
+            raise ValidationError(f"Array shorter than minItems={min_items}", path)
         items_schema = schema.get("items")
         if isinstance(items_schema, dict):
             for idx, item in enumerate(instance):
                 _validate(item, items_schema, f"{path}[{idx}]")
+
+
+class Draft7Validator:
+    def __init__(self, schema: Dict[str, Any]):
+        self.schema = schema
+
+    def iter_errors(self, instance: Any):
+        try:
+            validate(instance, self.schema)
+        except ValidationError as exc:
+            yield exc
 

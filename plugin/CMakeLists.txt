@@ -41,8 +41,11 @@ target_sources(Auralis
         Source/Dsp/Synth/ParameterState.h
         Source/Mapping/JsonPatchApplier.cpp
         Source/Mapping/JsonPatchApplier.h
+        Source/Mapping/PatchMessage.h
         Source/Mapping/PromptRuleParser.cpp
         Source/Mapping/PromptRuleParser.h
+        Source/Mapping/PromptServiceClient.cpp
+        Source/Mapping/PromptServiceClient.h
         Source/Mapping/RingBuffer.cpp
         Source/Mapping/RingBuffer.h
         Source/Param/ParamIDs.h

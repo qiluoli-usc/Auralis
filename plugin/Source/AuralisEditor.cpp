@@ -35,6 +35,8 @@ AuralisAudioProcessorEditor::AuralisAudioProcessorEditor(AuralisAudioProcessor& 
 
     initialisePresetMenu();
     initialisePromptControls();
+
+    startTimerHz(15);
 }
 
 void AuralisAudioProcessorEditor::initialiseWaveformControls()
@@ -100,8 +102,8 @@ void AuralisAudioProcessorEditor::initialisePromptControls()
     applyPromptButton.setButtonText("Generate Patch");
     applyPromptButton.onClick = [this]()
     {
-        const auto jsonText = processorRef.processPrompt(promptInput.getText(), dryRunToggle.getToggleState());
-        patchPreview.setText(jsonText, juce::dontSendNotification);
+        patchPreview.setText("Queued prompt for mapping…", juce::dontSendNotification);
+        processorRef.queuePrompt(promptInput.getText(), dryRunToggle.getToggleState());
     };
     addAndMakeVisible(applyPromptButton);
 
@@ -225,4 +227,17 @@ void AuralisAudioProcessorEditor::resized()
     auto inputArea = promptArea.removeFromLeft(promptArea.getWidth() / 2);
     promptInput.setBounds(inputArea.reduced(5, 5));
     patchPreview.setBounds(promptArea.reduced(5, 5));
+}
+
+void AuralisAudioProcessorEditor::timerCallback()
+{
+    juce::String preview;
+    if (processorRef.fetchLatestPreview(preview))
+    {
+        if (preview != lastPreviewText)
+        {
+            lastPreviewText = preview;
+            patchPreview.setText(preview, juce::dontSendNotification);
+        }
+    }
 }

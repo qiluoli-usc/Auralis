@@ -8,7 +8,7 @@
 
 class AuralisAudioProcessor;
 
-class AuralisAudioProcessorEditor : public juce::AudioProcessorEditor
+class AuralisAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     explicit AuralisAudioProcessorEditor(AuralisAudioProcessor&);
@@ -18,6 +18,8 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+
     struct SliderControl
     {
         juce::Slider slider;
@@ -53,6 +55,8 @@ private:
     juce::TextButton applyPromptButton;
     juce::Label previewLabel;
     juce::TextEditor patchPreview;
+
+    juce::String lastPreviewText;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AuralisAudioProcessorEditor)
 };
