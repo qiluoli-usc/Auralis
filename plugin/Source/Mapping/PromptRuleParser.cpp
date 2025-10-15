@@ -124,6 +124,20 @@ bool PromptRuleParser::containsAny(const juce::String& haystack, std::initialize
     return false;
 }
 
+bool PromptRuleParser::containsAnyWord(const juce::StringArray& tokens, std::initializer_list<const char*> needles)
+{
+    for (const auto& token : tokens)
+    {
+        for (auto* needle : needles)
+        {
+            if (token == needle)
+                return true;
+        }
+    }
+
+    return false;
+}
+
 PromptRuleParser::Result PromptRuleParser::parse(const juce::String& prompt) const
 {
     auto state = createDefaultPatch();
@@ -131,7 +145,14 @@ PromptRuleParser::Result PromptRuleParser::parse(const juce::String& prompt) con
 
     const auto lowerPrompt = prompt.toLowerCase();
 
-    if (containsAny(lowerPrompt, { "warm", "lush", "buttery", "velvety" }))
+    juce::StringArray lowerTokens;
+    lowerTokens.addTokens(prompt, " ,.;:\n\t-_/()", "");
+    lowerTokens.removeEmptyStrings();
+    for (auto& token : lowerTokens)
+        token = token.toLowerCase();
+
+    if (containsAnyWord(lowerTokens, { "warm", "warmer", "warmth" })
+        || containsAny(lowerPrompt, { "warm", "lush", "buttery", "velvety", "cozy", "cosy" }))
     {
         state.oscillators[0].waveform = "saw";
         state.oscillators[1].waveform = "saw";
@@ -154,7 +175,8 @@ PromptRuleParser::Result PromptRuleParser::parse(const juce::String& prompt) con
         addRuleIfNeeded(result.matchedRules, "analog character");
     }
 
-    if (containsAny(lowerPrompt, { "pad", "swell", "wash", "bed" }))
+    if (containsAnyWord(lowerTokens, { "pad", "pads" })
+        || containsAny(lowerPrompt, { "pad", "swell", "wash", "bed", "drape", "blanket" }))
     {
         state.attackMs = juce::jmax(state.attackMs, 900.0f);
         state.decayMs = juce::jmax(state.decayMs, 600.0f);
@@ -185,7 +207,8 @@ PromptRuleParser::Result PromptRuleParser::parse(const juce::String& prompt) con
         addRuleIfNeeded(result.matchedRules, "long release");
     }
 
-    if (containsAny(lowerPrompt, { "bright", "shimmer", "sparkle" }))
+    if (containsAnyWord(lowerTokens, { "bright", "brighter", "brightness" })
+        || containsAny(lowerPrompt, { "bright", "shimmer", "sparkle", "sparkly", "glassy", "brilliant" }))
     {
         state.filterCutoffHz = juce::jmax(state.filterCutoffHz, 3600.0f);
         state.filterResonance = juce::jmin(0.5f, juce::jmax(state.filterResonance, 0.28f));
@@ -199,7 +222,8 @@ PromptRuleParser::Result PromptRuleParser::parse(const juce::String& prompt) con
         addRuleIfNeeded(result.matchedRules, "dark tone");
     }
 
-    if (containsAny(lowerPrompt, { "plucky", "snappy", "percussive" }))
+    if (containsAnyWord(lowerTokens, { "pluck", "plucks", "plucked", "plucky" })
+        || containsAny(lowerPrompt, { "plucky", "snappy", "percussive", "spiky", "stab" }))
     {
         state.attackMs = juce::jmin(state.attackMs, 40.0f);
         state.decayMs = juce::jmin(state.decayMs, 200.0f);
@@ -208,15 +232,12 @@ PromptRuleParser::Result PromptRuleParser::parse(const juce::String& prompt) con
         addRuleIfNeeded(result.matchedRules, "plucked articulation");
     }
 
-    juce::StringArray tokens;
-    tokens.addTokens(prompt, " ,.;:\n\t", "");
-
-    for (int i = 0; i < tokens.size(); ++i)
+    for (int i = 0; i < lowerTokens.size(); ++i)
     {
-        const auto tokenLower = tokens[i].toLowerCase();
+        const auto& tokenLower = lowerTokens.getReference(i);
         if (tokenLower == "bpm" && i > 0)
         {
-            const int bpmValue = tokens[i - 1].getIntValue();
+            const int bpmValue = lowerTokens[i - 1].getIntValue();
             if (bpmValue >= 20 && bpmValue <= 300)
             {
                 state.hasBpm = true;

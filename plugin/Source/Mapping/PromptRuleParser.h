@@ -53,5 +53,6 @@ private:
 
     [[nodiscard]] static PatchState createDefaultPatch();
     [[nodiscard]] static bool containsAny(const juce::String& haystack, std::initializer_list<const char*> needles);
+    [[nodiscard]] static bool containsAnyWord(const juce::StringArray& tokens, std::initializer_list<const char*> needles);
 };
 } // namespace auralis::mapping
