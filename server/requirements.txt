@@ -1,0 +1,3 @@
+# Placeholder dependency list for the Auralis server.
+fastapi
+uvicorn
