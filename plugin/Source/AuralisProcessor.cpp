@@ -5,6 +5,7 @@
 #include "Param/ParamTree.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_data_structures/juce_data_structures.h>
 
 #include <memory>
 
@@ -16,6 +17,7 @@ AuralisAudioProcessor::AuralisAudioProcessor()
       parameters(*this, nullptr, auralis::params::parameterGroup, createParameterLayout())
 {
     parameterState.initialise(parameters);
+    patchApplier = std::make_unique<auralis::mapping::JsonPatchApplier>(parameters);
 
     constexpr int numVoices = 8;
     for (int i = 0; i < numVoices; ++i)
@@ -177,6 +179,17 @@ void AuralisAudioProcessor::loadStateFromFile(const File& file)
     MemoryBlock block;
     if (file.loadFileAsData(block))
         setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+}
+
+juce::String AuralisAudioProcessor::processPrompt(const juce::String& prompt, bool dryRun)
+{
+    auto result = promptParser.parse(prompt);
+    auto jsonText = juce::JSON::toString(result.patch, true);
+
+    if (! dryRun && patchApplier != nullptr)
+        patchApplier->apply(result.patch);
+
+    return jsonText;
 }
 
 //==============================================================================

@@ -16,7 +16,7 @@ enum PresetMenuItems
 AuralisAudioProcessorEditor::AuralisAudioProcessorEditor(AuralisAudioProcessor& processor)
     : AudioProcessorEditor(&processor), processorRef(processor)
 {
-    setSize(640, 420);
+    setSize(680, 520);
 
     initialiseWaveformControls();
 
@@ -34,6 +34,7 @@ AuralisAudioProcessorEditor::AuralisAudioProcessorEditor(AuralisAudioProcessor& 
     addSliderControl(auralis::params::reverbMix, "Reverb Mix");
 
     initialisePresetMenu();
+    initialisePromptControls();
 }
 
 void AuralisAudioProcessorEditor::initialiseWaveformControls()
@@ -78,6 +79,43 @@ void AuralisAudioProcessorEditor::initialisePresetMenu()
     presetMenu.setSelectedId(presetMenuNone);
 
     addAndMakeVisible(presetMenu);
+}
+
+void AuralisAudioProcessorEditor::initialisePromptControls()
+{
+    promptLabel.setText("Prompt", juce::dontSendNotification);
+    promptLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(promptLabel);
+
+    promptInput.setMultiLine(true);
+    promptInput.setReturnKeyStartsNewLine(true);
+    promptInput.setScrollbarsShown(true);
+    promptInput.setTextToShowWhenEmpty("Describe the sound you want…");
+    addAndMakeVisible(promptInput);
+
+    dryRunToggle.setButtonText("Dry run (preview only)");
+    dryRunToggle.setToggleState(true, juce::dontSendNotification);
+    addAndMakeVisible(dryRunToggle);
+
+    applyPromptButton.setButtonText("Generate Patch");
+    applyPromptButton.onClick = [this]()
+    {
+        const auto jsonText = processorRef.processPrompt(promptInput.getText(), dryRunToggle.getToggleState());
+        patchPreview.setText(jsonText, juce::dontSendNotification);
+    };
+    addAndMakeVisible(applyPromptButton);
+
+    previewLabel.setText("JSON Patch", juce::dontSendNotification);
+    previewLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(previewLabel);
+
+    patchPreview.setMultiLine(true);
+    patchPreview.setReadOnly(true);
+    patchPreview.setScrollbarsShown(true);
+    patchPreview.setCaretVisible(false);
+    patchPreview.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+    patchPreview.setTextToShowWhenEmpty("Patch preview will appear here.");
+    addAndMakeVisible(patchPreview);
 }
 
 void AuralisAudioProcessorEditor::handlePresetSelection(int selectionID)
@@ -153,6 +191,8 @@ void AuralisAudioProcessorEditor::resized()
     osc2WaveformLabel.setBounds(osc2Area.removeFromTop(20));
     osc2WaveformBox.setBounds(osc2Area.removeFromTop(30));
 
+    auto promptArea = bounds.removeFromBottom(220);
+
     const int columns = 4;
     const int rows = static_cast<int>((sliderControls.size() + columns - 1) / columns);
     const int sliderHeight = rows > 0 ? bounds.getHeight() / rows : 0;
@@ -172,4 +212,17 @@ void AuralisAudioProcessorEditor::resized()
         sliderControls[i]->label.setBounds(labelArea);
         sliderControls[i]->slider.setBounds(sliderArea.reduced(10));
     }
+
+    auto promptHeader = promptArea.removeFromTop(24);
+    auto promptLabelArea = promptHeader.removeFromLeft(promptHeader.getWidth() / 2);
+    promptLabel.setBounds(promptLabelArea);
+    previewLabel.setBounds(promptHeader);
+
+    auto promptControls = promptArea.removeFromTop(30);
+    dryRunToggle.setBounds(promptControls.removeFromLeft(180));
+    applyPromptButton.setBounds(promptControls.removeFromRight(160).reduced(0, 4));
+
+    auto inputArea = promptArea.removeFromLeft(promptArea.getWidth() / 2);
+    promptInput.setBounds(inputArea.reduced(5, 5));
+    patchPreview.setBounds(promptArea.reduced(5, 5));
 }

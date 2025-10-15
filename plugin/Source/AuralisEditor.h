@@ -43,8 +43,16 @@ private:
     void configureSlider(juce::Slider& slider);
     void initialiseWaveformControls();
     void initialisePresetMenu();
+    void initialisePromptControls();
 
     void handlePresetSelection(int selectionID);
+
+    juce::Label promptLabel;
+    juce::TextEditor promptInput;
+    juce::ToggleButton dryRunToggle;
+    juce::TextButton applyPromptButton;
+    juce::Label previewLabel;
+    juce::TextEditor patchPreview;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AuralisAudioProcessorEditor)
 };

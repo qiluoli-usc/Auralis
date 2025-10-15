@@ -1,3 +1,4 @@
 #include "RingBuffer.h"
 
-// TODO: Implement the lock-free ring buffer.
+// This file intentionally left blank because the ring buffer is implemented as
+// a header-only template (see RingBuffer.h).

@@ -3,7 +3,11 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
+#include <memory>
+
 #include "Dsp/Synth/AuralisVoice.h"
+#include "Mapping/JsonPatchApplier.h"
+#include "Mapping/PromptRuleParser.h"
 
 class AuralisAudioProcessor : public juce::AudioProcessor
 {
@@ -50,9 +54,14 @@ public:
     void saveStateToFile(const juce::File& file);
     void loadStateFromFile(const juce::File& file);
 
+    juce::String processPrompt(const juce::String& prompt, bool dryRun);
+
 private:
     juce::AudioProcessorValueTreeState parameters;
     auralis::dsp::ParameterState parameterState;
+
+    auralis::mapping::PromptRuleParser promptParser;
+    std::unique_ptr<auralis::mapping::JsonPatchApplier> patchApplier;
 
     juce::Synthesiser synth;
     juce::dsp::Reverb reverb;
