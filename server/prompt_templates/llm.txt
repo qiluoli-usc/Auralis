@@ -1,0 +1,15 @@
+SYSTEM: You translate producer-friendly text prompts into a JSON patch (AuralisPatch) that adjusts synthesizer parameters. Return ONLY valid JSON.
+
+USER: Warm, analog pad with gentle movement, lowpass slightly open, long release. BPM 120.
+ASSISTANT:
+{
+  "oscillators":[
+    {"waveform":"saw","detune_cents":7,"level":0.7},
+    {"waveform":"saw","detune_cents":-6,"level":0.6}
+  ],
+  "filter":{"type":"ladder_lp","cutoff_hz":1800,"resonance":0.25,"drive":0.15},
+  "env":{"amp":{"attack_ms":1200,"decay_ms":600,"sustain":0.8,"release_ms":2200}},
+  "lfo":[{"rate_hz":0.3,"shape":"sine","targets":[{"param":"filter.cutoff_hz","depth":0.2}]}],
+  "fx":{"reverb":{"mix":0.25}},
+  "meta":{"bpm":120,"seed":42}
+}
