@@ -3,13 +3,17 @@
 #include "AuralisProcessor.h"
 #include "Param/ParamIDs.h"
 
+#include <cmath>
+
 namespace
 {
 enum PresetMenuItems
 {
     presetMenuNone = 0,
-    presetMenuSave = 1,
-    presetMenuLoad = 2
+    presetMenuSaveState = 1,
+    presetMenuLoadState = 2,
+    presetMenuExportPatch = 3,
+    presetMenuImportPatch = 4
 };
 }
 
@@ -18,8 +22,28 @@ AuralisAudioProcessorEditor::AuralisAudioProcessorEditor(AuralisAudioProcessor& 
 {
     setSize(680, 520);
 
+    undoButton.setButtonText("Undo");
+    undoButton.onClick = [this]() { processorRef.undoLastChange(); };
+    addAndMakeVisible(undoButton);
+
+    redoButton.setButtonText("Redo");
+    redoButton.onClick = [this]() { processorRef.redoLastChange(); };
+    addAndMakeVisible(redoButton);
+
+    latencyTitleLabel.setText("Prompt Latency", juce::dontSendNotification);
+    latencyTitleLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(latencyTitleLabel);
+
+    latencyValueLabel.setText("—", juce::dontSendNotification);
+    latencyValueLabel.setJustificationType(juce::Justification::centred);
+    latencyValueLabel.setFont(juce::Font(14.0f, juce::Font::bold));
+    addAndMakeVisible(latencyValueLabel);
+
     initialiseWaveformControls();
 
+    addSliderControl(auralis::params::macroBrightness, "Macro A Brightness");
+    addSliderControl(auralis::params::macroMovement, "Macro B Movement");
+    addSliderControl(auralis::params::macroAtmosphere, "Macro C Atmosphere");
     addSliderControl(auralis::params::osc1DetuneCents, "Osc 1 Detune (cents)");
     addSliderControl(auralis::params::osc2DetuneCents, "Osc 2 Detune (cents)");
     addSliderControl(auralis::params::oscMix, "Osc Mix");
@@ -75,8 +99,11 @@ void AuralisAudioProcessorEditor::initialisePresetMenu()
     addAndMakeVisible(presetLabel);
 
     presetMenu.addItem("-- Select --", presetMenuNone);
-    presetMenu.addItem("Save preset…", presetMenuSave);
-    presetMenu.addItem("Load preset…", presetMenuLoad);
+    presetMenu.addItem("Save host preset…", presetMenuSaveState);
+    presetMenu.addItem("Load host preset…", presetMenuLoadState);
+    presetMenu.addSeparator();
+    presetMenu.addItem("Export patch (.aurapatch.json)…", presetMenuExportPatch);
+    presetMenu.addItem("Import patch (.aurapatch.json)…", presetMenuImportPatch);
     presetMenu.onChange = [this]() { handlePresetSelection(presetMenu.getSelectedId()); };
     presetMenu.setSelectedId(presetMenuNone);
 
@@ -124,21 +151,35 @@ void AuralisAudioProcessorEditor::handlePresetSelection(int selectionID)
 {
     presetMenu.setSelectedId(presetMenuNone, juce::dontSendNotification);
 
-    juce::FileChooser chooser("Select preset file", juce::File(), "*.auralis");
-
-    if (selectionID == presetMenuSave)
+    if (selectionID == presetMenuSaveState)
     {
+        juce::FileChooser chooser("Save host preset", juce::File(), "*.auralis");
+        if (chooser.browseForFileToSave(true))
+            processorRef.saveStateToFile(chooser.getResult());
+    }
+    else if (selectionID == presetMenuLoadState)
+    {
+        juce::FileChooser chooser("Load host preset", juce::File(), "*.auralis");
+        if (chooser.browseForFileToOpen())
+            processorRef.loadStateFromFile(chooser.getResult());
+    }
+    else if (selectionID == presetMenuExportPatch)
+    {
+        juce::FileChooser chooser("Export patch", juce::File(), "*.aurapatch.json");
         if (chooser.browseForFileToSave(true))
         {
-            processorRef.saveStateToFile(chooser.getResult());
+            auto file = chooser.getResult();
+            if (! file.hasFileExtension(".aurapatch.json"))
+                file = file.withFileExtension(".aurapatch.json");
+
+            processorRef.exportPatchToFile(file);
         }
     }
-    else if (selectionID == presetMenuLoad)
+    else if (selectionID == presetMenuImportPatch)
     {
+        juce::FileChooser chooser("Import patch", juce::File(), "*.aurapatch.json");
         if (chooser.browseForFileToOpen())
-        {
-            processorRef.loadStateFromFile(chooser.getResult());
-        }
+            processorRef.importPatchFromFile(chooser.getResult());
     }
 }
 
@@ -177,13 +218,24 @@ void AuralisAudioProcessorEditor::paint(juce::Graphics& g)
 void AuralisAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(20);
-    auto header = bounds.removeFromTop(60);
+    auto header = bounds.removeFromTop(100);
+
     auto presetArea = header.removeFromRight(220);
+    auto latencyArea = header.removeFromRight(180);
+    auto historyArea = header.removeFromLeft(160);
 
-    presetLabel.setBounds(presetArea.removeFromLeft(80));
-    presetMenu.setBounds(presetArea.reduced(10, 15));
+    presetLabel.setBounds(presetArea.removeFromTop(24));
+    presetMenu.setBounds(presetArea.reduced(10, 5));
 
-    auto waveformArea = header.removeFromLeft(280);
+    auto historyButtonArea = historyArea.reduced(0, 10);
+    auto undoArea = historyButtonArea.removeFromTop(30);
+    undoButton.setBounds(undoArea.reduced(0, 2));
+    redoButton.setBounds(historyButtonArea.removeFromTop(30).reduced(0, 2));
+
+    latencyTitleLabel.setBounds(latencyArea.removeFromTop(24));
+    latencyValueLabel.setBounds(latencyArea.reduced(10, 10));
+
+    auto waveformArea = header;
     auto osc1Area = waveformArea.removeFromLeft(waveformArea.getWidth() / 2);
     auto osc2Area = waveformArea;
 
@@ -239,5 +291,23 @@ void AuralisAudioProcessorEditor::timerCallback()
             lastPreviewText = preview;
             patchPreview.setText(preview, juce::dontSendNotification);
         }
+    }
+
+    undoButton.setEnabled(processorRef.canUndo());
+    redoButton.setEnabled(processorRef.canRedo());
+
+    const auto latencyMs = processorRef.getLastPromptLatencyMs();
+    const bool hadLatency = lastLatencyValueMs >= 0.0;
+    const bool hasLatency = latencyMs >= 0.0;
+
+    if ((hasLatency != hadLatency)
+        || (hasLatency && std::abs(latencyMs - lastLatencyValueMs) > 0.25))
+    {
+        lastLatencyValueMs = latencyMs;
+
+        if (! hasLatency)
+            latencyValueLabel.setText("—", juce::dontSendNotification);
+        else
+            latencyValueLabel.setText(juce::String(latencyMs, 2) + " ms", juce::dontSendNotification);
     }
 }

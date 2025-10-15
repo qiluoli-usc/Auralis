@@ -126,13 +126,23 @@ namespace
                                                      range,
                                                      0.2f);
     }
+
+    std::unique_ptr<RangedAudioParameter> makeMacroParameter(const juce::String& paramID,
+                                                             const juce::String& name)
+    {
+        NormalisableRange<float> range { 0.0f, 1.0f, 0.0f };
+        return std::make_unique<AudioParameterFloat>(paramID, name, range, 0.5f);
+    }
 } // namespace
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     std::vector<std::unique_ptr<RangedAudioParameter>> params;
-    params.reserve(13);
+    params.reserve(16);
 
+    params.push_back(makeMacroParameter(auralis::params::macroBrightness, "Macro A Brightness"));
+    params.push_back(makeMacroParameter(auralis::params::macroMovement, "Macro B Movement"));
+    params.push_back(makeMacroParameter(auralis::params::macroAtmosphere, "Macro C Atmosphere"));
     params.push_back(makeWaveformParameter(auralis::params::osc1Waveform, "Osc 1 Waveform"));
     params.push_back(makeDetuneParameter(auralis::params::osc1DetuneCents, "Osc 1 Detune (cents)"));
     params.push_back(makeWaveformParameter(auralis::params::osc2Waveform, "Osc 2 Waveform"));

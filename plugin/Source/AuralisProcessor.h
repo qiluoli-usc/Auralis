@@ -11,6 +11,8 @@
 #include "Mapping/PatchMessage.h"
 #include "Mapping/PromptRuleParser.h"
 #include "Mapping/PromptServiceClient.h"
+#include "Utils/MacroController.h"
+#include "Utils/ParameterHistory.h"
 
 class AuralisAudioProcessor : public juce::AudioProcessor
 {
@@ -60,6 +62,15 @@ public:
 
     void saveStateToFile(const juce::File& file);
     void loadStateFromFile(const juce::File& file);
+    void exportPatchToFile(const juce::File& file);
+    void importPatchFromFile(const juce::File& file);
+
+    bool undoLastChange();
+    bool redoLastChange();
+    bool canUndo() const;
+    bool canRedo() const;
+
+    double getLastPromptLatencyMs() const;
 
 private:
     juce::AudioProcessorValueTreeState parameters;
@@ -72,14 +83,20 @@ private:
     auralis::mapping::PromptServiceClient promptClient;
     auralis::mapping::RingBuffer<auralis::mapping::PatchMessage, 16> pendingPatchMessages;
 
+    std::unique_ptr<auralis::utils::ParameterHistory> parameterHistory;
+    std::unique_ptr<auralis::utils::MacroController> macroController;
+
     void applyPatchMessage(const auralis::mapping::PatchMessage& message);
     void publishPreview(const juce::String& previewText);
     void enqueuePatchForAudio(const auralis::mapping::PatchMessage& message);
     void scheduleParameterUpdate(const juce::var& patchVar);
+    juce::var buildPatchVarFromState() const;
 
     juce::CriticalSection previewLock;
     juce::String latestPreview;
     std::atomic<bool> previewAvailable { false };
+
+    std::atomic<double> lastPromptLatencyMs { -1.0 };
 
     juce::Synthesiser synth;
     juce::dsp::Reverb reverb;

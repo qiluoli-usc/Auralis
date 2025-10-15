@@ -57,6 +57,12 @@ private:
     juce::TextEditor patchPreview;
 
     juce::String lastPreviewText;
+    double lastLatencyValueMs = -1.0;
+
+    juce::TextButton undoButton;
+    juce::TextButton redoButton;
+    juce::Label latencyTitleLabel;
+    juce::Label latencyValueLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AuralisAudioProcessorEditor)
 };

@@ -9,6 +9,7 @@
 #include "Mapping/RingBuffer.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 #include <juce_data_structures/juce_data_structures.h>
 
 #include <deque>
@@ -40,6 +41,20 @@ int waveformIndexFromName(const juce::String& name) noexcept
         return 3;
 
     return 0;
+}
+
+juce::String waveformNameFromIndex(int index) noexcept
+{
+    switch (index)
+    {
+        case 1: return "saw";
+        case 2: return "square";
+        case 3: return "triangle";
+        case 4: return "noise";
+        default: break;
+    }
+
+    return "sine";
 }
 
 bool populatePatchMessage(const juce::var& patchVar,
@@ -234,6 +249,8 @@ public:
         juce::StringArray styleHints;
         std::optional<int> bpm;
         std::optional<int> seed;
+        double startTimeMs = 0.0;
+        bool measureLatency = false;
     };
 
     PromptServiceWorker(AuralisAudioProcessor& owner, auralis::mapping::PromptServiceClient& clientIn)
@@ -306,7 +323,11 @@ private:
                 processor.scheduleParameterUpdate(patchVar);
                 auralis::mapping::PatchMessage message;
                 if (populatePatchMessage(patchVar, processor.parameters, message))
+                {
+                    message.measureLatency = job.measureLatency;
+                    message.requestStartMs = job.startTimeMs;
                     processor.enqueuePatchForAudio(message);
+                }
             }
             return;
         }
@@ -327,7 +348,11 @@ private:
             processor.scheduleParameterUpdate(patchVar);
             auralis::mapping::PatchMessage message;
             if (populatePatchMessage(patchVar, processor.parameters, message))
+            {
+                message.measureLatency = job.measureLatency;
+                message.requestStartMs = job.startTimeMs;
                 processor.enqueuePatchForAudio(message);
+            }
         }
     }
 
@@ -348,6 +373,8 @@ AuralisAudioProcessor::AuralisAudioProcessor()
 {
     parameterState.initialise(parameters);
     patchApplier = std::make_unique<auralis::mapping::JsonPatchApplier>(parameters);
+    parameterHistory = std::make_unique<auralis::utils::ParameterHistory>(parameters);
+    macroController = std::make_unique<auralis::utils::MacroController>(parameters);
 
     constexpr int numVoices = 8;
     for (int i = 0; i < numVoices; ++i)
@@ -360,6 +387,8 @@ AuralisAudioProcessor::AuralisAudioProcessor()
 
 AuralisAudioProcessor::~AuralisAudioProcessor()
 {
+    macroController.reset();
+    parameterHistory.reset();
     promptWorker.reset();
 }
 
@@ -522,6 +551,184 @@ void AuralisAudioProcessor::loadStateFromFile(const File& file)
         setStateInformation(block.getData(), static_cast<int>(block.getSize()));
 }
 
+void AuralisAudioProcessor::exportPatchToFile(const juce::File& file)
+{
+    auto patchVar = buildPatchVarFromState();
+    const auto json = juce::JSON::toString(patchVar, true);
+    auto parent = file.getParentDirectory();
+    if (! parent.exists())
+        parent.createDirectory();
+    file.replaceWithText(json);
+    publishPreview("Exported patch to " + file.getFileName());
+}
+
+void AuralisAudioProcessor::importPatchFromFile(const juce::File& file)
+{
+    if (! file.existsAsFile())
+    {
+        publishPreview("Patch file not found.");
+        return;
+    }
+
+    juce::FileInputStream stream(file);
+    if (! stream.openedOk())
+    {
+        publishPreview("Unable to open patch file.");
+        return;
+    }
+
+    const auto jsonText = stream.readEntireStreamAsString();
+
+    juce::String parseError;
+    auto patchVar = juce::JSON::parse(jsonText, parseError);
+
+    if (parseError.isNotEmpty())
+    {
+        publishPreview("Patch parse error: " + parseError);
+        return;
+    }
+
+    if (! patchVar.isObject())
+    {
+        publishPreview("Patch must be a JSON object.");
+        return;
+    }
+
+    publishPreview("Loaded patch:\n" + juce::JSON::toString(patchVar, true));
+
+    scheduleParameterUpdate(patchVar);
+
+    auralis::mapping::PatchMessage message;
+    if (populatePatchMessage(patchVar, parameters, message))
+    {
+        message.measureLatency = false;
+        message.requestStartMs = juce::Time::getMillisecondCounterHiRes();
+        enqueuePatchForAudio(message);
+    }
+}
+
+bool AuralisAudioProcessor::undoLastChange()
+{
+    if (parameterHistory == nullptr)
+        return false;
+
+    const auto performed = parameterHistory->undo();
+    if (performed)
+        publishPreview("Undo applied.");
+    return performed;
+}
+
+bool AuralisAudioProcessor::redoLastChange()
+{
+    if (parameterHistory == nullptr)
+        return false;
+
+    const auto performed = parameterHistory->redo();
+    if (performed)
+        publishPreview("Redo applied.");
+    return performed;
+}
+
+bool AuralisAudioProcessor::canUndo() const
+{
+    return parameterHistory != nullptr && parameterHistory->canUndo();
+}
+
+bool AuralisAudioProcessor::canRedo() const
+{
+    return parameterHistory != nullptr && parameterHistory->canRedo();
+}
+
+double AuralisAudioProcessor::getLastPromptLatencyMs() const
+{
+    return lastPromptLatencyMs.load(std::memory_order_acquire);
+}
+
+juce::var AuralisAudioProcessor::buildPatchVarFromState() const
+{
+    auto getValue = [this](const juce::String& paramID, float fallback) -> float
+    {
+        if (auto* ptr = parameters.getRawParameterValue(paramID))
+            return ptr->load();
+        return fallback;
+    };
+
+    juce::DynamicObject::Ptr root(new juce::DynamicObject());
+
+    auto* oscArray = new juce::Array<juce::var>();
+    const auto mix = juce::jlimit(0.0f, 1.0f, getValue(auralis::params::oscMix, 0.5f));
+    const float oscLevelRaw[2] { juce::jmax(0.0f, 1.0f - mix), juce::jmax(0.0f, mix) };
+    const auto levelTotal = juce::jmax(0.0001f, oscLevelRaw[0] + oscLevelRaw[1]);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        juce::DynamicObject::Ptr osc(new juce::DynamicObject());
+        const auto waveformIndex = juce::roundToInt(getValue(i == 0 ? auralis::params::osc1Waveform
+                                                                    : auralis::params::osc2Waveform,
+                                                              0.0f));
+        osc->setProperty("waveform", waveformNameFromIndex(waveformIndex));
+        const auto detune = juce::jlimit(-100.0f, 100.0f,
+                                         getValue(i == 0 ? auralis::params::osc1DetuneCents
+                                                         : auralis::params::osc2DetuneCents,
+                                                   0.0f));
+        osc->setProperty("detune_cents", detune);
+        osc->setProperty("semi_offset", 0);
+        osc->setProperty("level", juce::jlimit(0.0f, 1.0f, oscLevelRaw[i] / levelTotal));
+        oscArray->add(juce::var(osc));
+    }
+
+    root->setProperty("oscillators", juce::var(oscArray));
+
+    juce::DynamicObject::Ptr filter(new juce::DynamicObject());
+    filter->setProperty("type", "ladder_lp");
+    const auto cutoff = juce::jlimit(20.0f, 20000.0f, getValue(auralis::params::filterCutoffHz, 1000.0f));
+    filter->setProperty("cutoff_hz", cutoff);
+    const auto resonanceValue = juce::jlimit(0.1f, 10.0f, getValue(auralis::params::filterResonance, 0.7f));
+    const auto resonanceNormalised = juce::jlimit(0.0f, 1.0f, juce::jmap(resonanceValue, 0.1f, 10.0f, 0.0f, 1.0f));
+    filter->setProperty("resonance", resonanceNormalised);
+    filter->setProperty("drive", 0.0f);
+    root->setProperty("filter", juce::var(filter));
+
+    juce::DynamicObject::Ptr amp(new juce::DynamicObject());
+    amp->setProperty("attack_ms", juce::jlimit(0.0f, 5000.0f, getValue(auralis::params::envAttackMs, 10.0f)));
+    amp->setProperty("decay_ms", juce::jlimit(0.0f, 5000.0f, getValue(auralis::params::envDecayMs, 120.0f)));
+    amp->setProperty("sustain", juce::jlimit(0.0f, 1.0f, getValue(auralis::params::envSustain, 0.75f)));
+    amp->setProperty("release_ms", juce::jlimit(0.0f, 10000.0f, getValue(auralis::params::envReleaseMs, 250.0f)));
+
+    juce::DynamicObject::Ptr env(new juce::DynamicObject());
+    env->setProperty("amp", juce::var(amp));
+    root->setProperty("env", juce::var(env));
+
+    auto* lfoTargets = new juce::Array<juce::var>();
+    const auto lfoDepthHz = juce::jlimit(0.0f, 4000.0f, getValue(auralis::params::lfoDepthHz, 0.0f));
+    const auto lfoDepthNormalised = juce::jlimit(0.0f, 1.0f, lfoDepthHz / 4000.0f);
+    if (lfoDepthNormalised > 0.0f)
+    {
+        juce::DynamicObject::Ptr target(new juce::DynamicObject());
+        target->setProperty("param", "filter.cutoff_hz");
+        target->setProperty("depth", lfoDepthNormalised);
+        lfoTargets->add(juce::var(target));
+    }
+
+    juce::DynamicObject::Ptr lfo(new juce::DynamicObject());
+    lfo->setProperty("rate_hz", juce::jlimit(0.01f, 30.0f, getValue(auralis::params::lfoRateHz, 2.0f)));
+    lfo->setProperty("shape", "sine");
+    lfo->setProperty("targets", juce::var(lfoTargets));
+
+    auto* lfoArray = new juce::Array<juce::var>();
+    lfoArray->add(juce::var(lfo));
+    root->setProperty("lfo", juce::var(lfoArray));
+
+    juce::DynamicObject::Ptr reverb(new juce::DynamicObject());
+    reverb->setProperty("mix", juce::jlimit(0.0f, 1.0f, getValue(auralis::params::reverbMix, 0.2f)));
+
+    juce::DynamicObject::Ptr fx(new juce::DynamicObject());
+    fx->setProperty("reverb", juce::var(reverb));
+    root->setProperty("fx", juce::var(fx));
+
+    return juce::var(root);
+}
+
 void AuralisAudioProcessor::queuePrompt(const juce::String& prompt, bool dryRun)
 {
     const auto trimmed = prompt.trim();
@@ -531,11 +738,15 @@ void AuralisAudioProcessor::queuePrompt(const juce::String& prompt, bool dryRun)
         return;
     }
 
+    const auto requestStart = juce::Time::getMillisecondCounterHiRes();
+
     if (promptWorker != nullptr)
     {
         PromptServiceWorker::Job job;
         job.prompt = trimmed;
         job.dryRun = dryRun;
+        job.startTimeMs = requestStart;
+        job.measureLatency = ! dryRun;
 
         publishPreview("Queued prompt for mapping…");
         promptWorker->enqueue(std::move(job));
@@ -546,8 +757,18 @@ void AuralisAudioProcessor::queuePrompt(const juce::String& prompt, bool dryRun)
     auto jsonText = juce::JSON::toString(fallback.patch, true);
     publishPreview(jsonText);
 
-    if (! dryRun && patchApplier != nullptr)
-        patchApplier->apply(fallback.patch);
+    if (! dryRun)
+    {
+        scheduleParameterUpdate(fallback.patch);
+
+        auralis::mapping::PatchMessage message;
+        if (populatePatchMessage(fallback.patch, parameters, message))
+        {
+            message.measureLatency = true;
+            message.requestStartMs = requestStart;
+            enqueuePatchForAudio(message);
+        }
+    }
 }
 
 bool AuralisAudioProcessor::fetchLatestPreview(juce::String& previewOut)
@@ -640,6 +861,13 @@ void AuralisAudioProcessor::applyPatchMessage(const auralis::mapping::PatchMessa
 
     if (message.hasReverbMix && parameterState.reverbMix != nullptr)
         parameterState.reverbMix->store(message.reverbMix, memory_order_release);
+
+    if (message.measureLatency)
+    {
+        const auto now = juce::Time::getMillisecondCounterHiRes();
+        const auto latencyMs = juce::jmax(0.0, now - message.requestStartMs);
+        lastPromptLatencyMs.store(latencyMs, std::memory_order_release);
+    }
 }
 
 //==============================================================================

@@ -39,5 +39,8 @@ struct PatchMessage
 
     bool hasReverbMix { false };
     float reverbMix { 0.2f };
+
+    bool measureLatency { false };
+    double requestStartMs { 0.0 };
 };
 }

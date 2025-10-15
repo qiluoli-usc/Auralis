@@ -51,6 +51,8 @@ target_sources(Auralis
         Source/Param/ParamIDs.h
         Source/Param/ParamTree.cpp
         Source/Param/ParamTree.h
+        Source/Utils/MacroController.h
+        Source/Utils/ParameterHistory.h
 )
 
 target_include_directories(Auralis

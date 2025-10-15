@@ -28,6 +28,11 @@ inline constexpr auto lfoDepthHz = "lfo1.depth_hz";
 // FX
 inline constexpr auto reverbMix = "fx.reverb.mix";
 
+// Macros
+inline constexpr auto macroBrightness = "macro.brightness";
+inline constexpr auto macroMovement = "macro.movement";
+inline constexpr auto macroAtmosphere = "macro.atmosphere";
+
 inline constexpr auto parameterGroup = "AuralisParameters";
 } // namespace auralis::params
 
@@ -47,6 +52,9 @@ inline juce::String getParameterName(const juce::String& paramID)
     if (paramID == auralis::params::lfoRateHz) return "LFO Rate (Hz)";
     if (paramID == auralis::params::lfoDepthHz) return "LFO Depth (Hz)";
     if (paramID == auralis::params::reverbMix) return "Reverb Mix";
+    if (paramID == auralis::params::macroBrightness) return "Macro A Brightness";
+    if (paramID == auralis::params::macroMovement) return "Macro B Movement";
+    if (paramID == auralis::params::macroAtmosphere) return "Macro C Atmosphere";
 
     return paramID;
 }

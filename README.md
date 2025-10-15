@@ -25,3 +25,12 @@ uvicorn server.app:app --reload
 ```
 
 By default the plugin talks to `http://127.0.0.1:8000/map` and will fall back to its built-in rule parser if the service is unavailable.
+
+## In-plugin UX tooling
+
+The JUCE editor now ships with an offline-friendly workflow layer:
+
+- **History** &mdash; Undo/redo buttons capture parameter snapshots, allowing quick A/B comparisons without involving the host.
+- **Macro controls** &mdash; Three macro knobs (brightness, movement, atmosphere) fan out to multiple parameters so broad tonal moves stay musical.
+- **Latency panel** &mdash; A running display of the prompt-to-audio latency in milliseconds helps evaluate remote mapper performance.
+- **Patch exchange** &mdash; Use the preset menu to export or import `.aurapatch.json` files that follow `schema/auralis.schema.json`.
