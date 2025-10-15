@@ -34,9 +34,25 @@ target_sources(Auralis
         Source/AuralisProcessor.h
         Source/AuralisEditor.cpp
         Source/AuralisEditor.h
+        Source/Dsp/Oscillators/BasicOscillator.h
+        Source/Dsp/Oscillators/Lfo.h
+        Source/Dsp/Synth/AuralisVoice.cpp
+        Source/Dsp/Synth/AuralisVoice.h
+        Source/Dsp/Synth/ParameterState.h
+        Source/Mapping/JsonPatchApplier.cpp
+        Source/Mapping/JsonPatchApplier.h
+        Source/Mapping/PatchMessage.h
+        Source/Mapping/PromptRuleParser.cpp
+        Source/Mapping/PromptRuleParser.h
+        Source/Mapping/PromptServiceClient.cpp
+        Source/Mapping/PromptServiceClient.h
+        Source/Mapping/RingBuffer.cpp
+        Source/Mapping/RingBuffer.h
         Source/Param/ParamIDs.h
         Source/Param/ParamTree.cpp
         Source/Param/ParamTree.h
+        Source/Utils/MacroController.h
+        Source/Utils/ParameterHistory.h
 )
 
 target_include_directories(Auralis

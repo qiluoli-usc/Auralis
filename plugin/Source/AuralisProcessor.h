@@ -1,12 +1,24 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+
+#include <atomic>
+#include <memory>
+
+#include "Dsp/Synth/AuralisVoice.h"
+#include "Mapping/JsonPatchApplier.h"
+#include "Mapping/PatchMessage.h"
+#include "Mapping/PromptRuleParser.h"
+#include "Mapping/PromptServiceClient.h"
+#include "Utils/MacroController.h"
+#include "Utils/ParameterHistory.h"
 
 class AuralisAudioProcessor : public juce::AudioProcessor
 {
 public:
     AuralisAudioProcessor();
-    ~AuralisAudioProcessor() override = default;
+    ~AuralisAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -44,11 +56,56 @@ public:
 
     juce::AudioProcessorValueTreeState& getValueTreeState() { return parameters; }
 
+    void queuePrompt(const juce::String& prompt, bool dryRun);
+    bool fetchLatestPreview(juce::String& previewOut);
+    void setPromptServiceBaseUrl(const juce::String& newUrl);
+
     void saveStateToFile(const juce::File& file);
     void loadStateFromFile(const juce::File& file);
+    void exportPatchToFile(const juce::File& file);
+    void importPatchFromFile(const juce::File& file);
+
+    bool undoLastChange();
+    bool redoLastChange();
+    bool canUndo() const;
+    bool canRedo() const;
+
+    double getLastPromptLatencyMs() const;
 
 private:
     juce::AudioProcessorValueTreeState parameters;
+    auralis::dsp::ParameterState parameterState;
+
+    auralis::mapping::PromptRuleParser promptParser;
+    std::unique_ptr<auralis::mapping::JsonPatchApplier> patchApplier;
+
+    std::unique_ptr<class PromptServiceWorker> promptWorker;
+    auralis::mapping::PromptServiceClient promptClient;
+    auralis::mapping::RingBuffer<auralis::mapping::PatchMessage, 16> pendingPatchMessages;
+
+    std::unique_ptr<auralis::utils::ParameterHistory> parameterHistory;
+    std::unique_ptr<auralis::utils::MacroController> macroController;
+
+    void applyPatchMessage(const auralis::mapping::PatchMessage& message);
+    void publishPreview(const juce::String& previewText);
+    void enqueuePatchForAudio(const auralis::mapping::PatchMessage& message);
+    void scheduleParameterUpdate(const juce::var& patchVar);
+    juce::var buildPatchVarFromState() const;
+
+    juce::CriticalSection previewLock;
+    juce::String latestPreview;
+    std::atomic<bool> previewAvailable { false };
+
+    std::atomic<double> lastPromptLatencyMs { -1.0 };
+
+    juce::Synthesiser synth;
+    juce::dsp::Reverb reverb;
+    juce::AudioBuffer<float> reverbBuffer;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> reverbMixSmoother;
+
+    bool isPrepared = false;
+
+    friend class PromptServiceWorker;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AuralisAudioProcessor)
 };

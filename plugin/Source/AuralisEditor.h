@@ -8,7 +8,7 @@
 
 class AuralisAudioProcessor;
 
-class AuralisAudioProcessorEditor : public juce::AudioProcessorEditor
+class AuralisAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     explicit AuralisAudioProcessorEditor(AuralisAudioProcessor&);
@@ -18,6 +18,8 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+
     struct SliderControl
     {
         juce::Slider slider;
@@ -27,9 +29,12 @@ private:
 
     AuralisAudioProcessor& processorRef;
 
-    juce::ComboBox waveformBox;
-    juce::Label waveformLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
+    juce::ComboBox osc1WaveformBox;
+    juce::ComboBox osc2WaveformBox;
+    juce::Label osc1WaveformLabel;
+    juce::Label osc2WaveformLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc1WaveformAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc2WaveformAttachment;
 
     juce::ComboBox presetMenu;
     juce::Label presetLabel;
@@ -38,10 +43,26 @@ private:
 
     SliderControl& addSliderControl(const juce::String& parameterID, const juce::String& labelText);
     void configureSlider(juce::Slider& slider);
-    void initialiseWaveformControl();
+    void initialiseWaveformControls();
     void initialisePresetMenu();
+    void initialisePromptControls();
 
     void handlePresetSelection(int selectionID);
+
+    juce::Label promptLabel;
+    juce::TextEditor promptInput;
+    juce::ToggleButton dryRunToggle;
+    juce::TextButton applyPromptButton;
+    juce::Label previewLabel;
+    juce::TextEditor patchPreview;
+
+    juce::String lastPreviewText;
+    double lastLatencyValueMs = -1.0;
+
+    juce::TextButton undoButton;
+    juce::TextButton redoButton;
+    juce::Label latencyTitleLabel;
+    juce::Label latencyValueLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AuralisAudioProcessorEditor)
 };

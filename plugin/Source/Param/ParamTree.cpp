@@ -9,23 +9,34 @@ using namespace juce;
 
 namespace
 {
-    std::unique_ptr<RangedAudioParameter> makeWaveformParameter()
+    std::unique_ptr<RangedAudioParameter> makeWaveformParameter(const juce::String& paramID,
+                                                                const juce::String& name)
     {
         StringArray choices { "Sine", "Saw", "Square", "Triangle" };
-        return std::make_unique<AudioParameterChoice>(auralis::params::osc1Waveform,
-                                                      "Osc 1 Waveform",
+        return std::make_unique<AudioParameterChoice>(paramID,
+                                                      name,
                                                       choices,
                                                       0);
     }
 
-    std::unique_ptr<RangedAudioParameter> makeDetuneParameter()
+    std::unique_ptr<RangedAudioParameter> makeDetuneParameter(const juce::String& paramID,
+                                                              const juce::String& name)
     {
         NormalisableRange<float> range { -200.0f, 200.0f, 0.01f };
         range.setSkewForCentre(0.0f);
-        return std::make_unique<AudioParameterFloat>(auralis::params::osc1DetuneCents,
-                                                     "Osc 1 Detune (cents)",
+        return std::make_unique<AudioParameterFloat>(paramID,
+                                                     name,
                                                      range,
                                                      0.0f);
+    }
+
+    std::unique_ptr<RangedAudioParameter> makeMixParameter()
+    {
+        NormalisableRange<float> range { 0.0f, 1.0f, 0.0f };
+        return std::make_unique<AudioParameterFloat>(auralis::params::oscMix,
+                                                     "Osc Mix",
+                                                     range,
+                                                     0.5f);
     }
 
     std::unique_ptr<RangedAudioParameter> makeCutoffParameter()
@@ -97,6 +108,16 @@ namespace
                                                      2.0f);
     }
 
+    std::unique_ptr<RangedAudioParameter> makeLfoDepthParameter()
+    {
+        NormalisableRange<float> range { 0.0f, 5000.0f, 0.01f };
+        range.setSkewForCentre(500.0f);
+        return std::make_unique<AudioParameterFloat>(auralis::params::lfoDepthHz,
+                                                     "LFO Depth (Hz)",
+                                                     range,
+                                                     0.0f);
+    }
+
     std::unique_ptr<RangedAudioParameter> makeReverbMixParameter()
     {
         NormalisableRange<float> range { 0.0f, 1.0f, 0.0f };
@@ -105,15 +126,28 @@ namespace
                                                      range,
                                                      0.2f);
     }
+
+    std::unique_ptr<RangedAudioParameter> makeMacroParameter(const juce::String& paramID,
+                                                             const juce::String& name)
+    {
+        NormalisableRange<float> range { 0.0f, 1.0f, 0.0f };
+        return std::make_unique<AudioParameterFloat>(paramID, name, range, 0.5f);
+    }
 } // namespace
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     std::vector<std::unique_ptr<RangedAudioParameter>> params;
-    params.reserve(10);
+    params.reserve(16);
 
-    params.push_back(makeWaveformParameter());
-    params.push_back(makeDetuneParameter());
+    params.push_back(makeMacroParameter(auralis::params::macroBrightness, "Macro A Brightness"));
+    params.push_back(makeMacroParameter(auralis::params::macroMovement, "Macro B Movement"));
+    params.push_back(makeMacroParameter(auralis::params::macroAtmosphere, "Macro C Atmosphere"));
+    params.push_back(makeWaveformParameter(auralis::params::osc1Waveform, "Osc 1 Waveform"));
+    params.push_back(makeDetuneParameter(auralis::params::osc1DetuneCents, "Osc 1 Detune (cents)"));
+    params.push_back(makeWaveformParameter(auralis::params::osc2Waveform, "Osc 2 Waveform"));
+    params.push_back(makeDetuneParameter(auralis::params::osc2DetuneCents, "Osc 2 Detune (cents)"));
+    params.push_back(makeMixParameter());
     params.push_back(makeCutoffParameter());
     params.push_back(makeResonanceParameter());
     params.push_back(makeAttackParameter());
@@ -121,6 +155,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     params.push_back(makeSustainParameter());
     params.push_back(makeReleaseParameter());
     params.push_back(makeLfoRateParameter());
+    params.push_back(makeLfoDepthParameter());
     params.push_back(makeReverbMixParameter());
 
     return { params.begin(), params.end() };
