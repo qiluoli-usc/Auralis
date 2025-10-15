@@ -98,6 +98,13 @@ cargo test
 The Rust crate currently focuses on data modeling and validation. DSP routines
 will be layered on once the patch contract stabilizes.
 
+### Working on feature branches
+
+Need to experiment on a separate branch or confirm tests before opening a PR?
+Follow the [Testing & Branch Workflow](docs/testing.md) guide. It walks through
+creating a branch, installing dependencies, and running the current checks so
+that your work stays isolated until it is ready to merge.
+
 ## Research Directions
 
 * Evaluate how well LLMs capture timbral terminology ("warm", "glassy", "swirly").
