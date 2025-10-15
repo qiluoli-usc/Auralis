@@ -15,15 +15,41 @@ AuralisAudioProcessor::AuralisAudioProcessor()
                                          .withOutput("Output", AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, auralis::params::parameterGroup, createParameterLayout())
 {
+    parameterState.initialise(parameters);
+
+    constexpr int numVoices = 8;
+    for (int i = 0; i < numVoices; ++i)
+        synth.addVoice(new auralis::dsp::AuralisVoice(parameterState));
+
+    synth.addSound(new auralis::dsp::AuralisSound());
 }
 
-void AuralisAudioProcessor::prepareToPlay(double /*sampleRate*/, int /*samplesPerBlock*/)
+void AuralisAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // No DSP yet.
+    juce::dsp::ProcessSpec spec { sampleRate,
+                                  static_cast<juce::uint32>(samplesPerBlock),
+                                  static_cast<juce::uint32>(getTotalNumOutputChannels()) };
+
+    synth.setCurrentPlaybackSampleRate(sampleRate);
+    for (int i = 0; i < synth.getNumVoices(); ++i)
+        if (auto* voice = dynamic_cast<auralis::dsp::AuralisVoice*>(synth.getVoice(i)))
+            voice->prepare(spec);
+
+    reverb.prepare(spec);
+    reverb.reset();
+
+    reverbBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock, false, false, true);
+
+    reverbMixSmoother.reset(sampleRate, 0.05);
+    reverbMixSmoother.setCurrentAndTargetValue(parameterState.getReverbMix());
+
+    isPrepared = true;
 }
 
 void AuralisAudioProcessor::releaseResources()
 {
+    isPrepared = false;
+    reverb.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -44,12 +70,43 @@ void AuralisAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer&
 {
     ScopedNoDenormals noDenormals;
 
+    if (! isPrepared)
+    {
+        buffer.clear();
+        midiMessages.clear();
+        return;
+    }
+
+    buffer.clear();
+
+    reverbMixSmoother.setTargetValue(parameterState.getReverbMix());
+
+    synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     midiMessages.clear();
 
-    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    jassert(reverbBuffer.getNumSamples() >= buffer.getNumSamples());
+    jassert(reverbBuffer.getNumChannels() == buffer.getNumChannels());
+
+    reverbBuffer.makeCopyOf(buffer, false);
+
+    juce::dsp::AudioBlock<float> wetBlock(reverbBuffer);
+    juce::dsp::ProcessContextReplacing<float> wetContext(wetBlock);
+    reverb.process(wetContext);
+
+    float* const* dryChannels = buffer.getArrayOfWritePointers();
+    const float* const* wetChannels = reverbBuffer.getArrayOfReadPointers();
+    const auto numChannels = buffer.getNumChannels();
+
+    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
-        auto* channelData = buffer.getWritePointer(channel);
-        juce::ignoreUnused(channelData);
+        const auto mix = juce::jlimit(0.0f, 1.0f, reverbMixSmoother.getNextValue());
+
+        for (int channel = 0; channel < numChannels; ++channel)
+        {
+            auto* dry = dryChannels[channel];
+            auto* wet = wetChannels[channel];
+            dry[sample] = (dry[sample] * (1.0f - mix)) + (wet[sample] * mix);
+        }
     }
 }
 

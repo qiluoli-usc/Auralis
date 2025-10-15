@@ -34,6 +34,11 @@ target_sources(Auralis
         Source/AuralisProcessor.h
         Source/AuralisEditor.cpp
         Source/AuralisEditor.h
+        Source/Dsp/Oscillators/BasicOscillator.h
+        Source/Dsp/Oscillators/Lfo.h
+        Source/Dsp/Synth/AuralisVoice.cpp
+        Source/Dsp/Synth/AuralisVoice.h
+        Source/Dsp/Synth/ParameterState.h
         Source/Param/ParamIDs.h
         Source/Param/ParamTree.cpp
         Source/Param/ParamTree.h

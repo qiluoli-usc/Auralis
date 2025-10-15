@@ -7,6 +7,9 @@ namespace auralis::params
 // Oscillator
 inline constexpr auto osc1Waveform = "osc1.waveform";
 inline constexpr auto osc1DetuneCents = "osc1.detune_cents";
+inline constexpr auto osc2Waveform = "osc2.waveform";
+inline constexpr auto osc2DetuneCents = "osc2.detune_cents";
+inline constexpr auto oscMix = "osc.mix";
 
 // Filter
 inline constexpr auto filterCutoffHz = "filter.cutoff_hz";
@@ -20,6 +23,7 @@ inline constexpr auto envReleaseMs = "env.amp.release_ms";
 
 // LFO
 inline constexpr auto lfoRateHz = "lfo1.rate_hz";
+inline constexpr auto lfoDepthHz = "lfo1.depth_hz";
 
 // FX
 inline constexpr auto reverbMix = "fx.reverb.mix";
@@ -31,6 +35,9 @@ inline juce::String getParameterName(const juce::String& paramID)
 {
     if (paramID == auralis::params::osc1Waveform) return "Osc 1 Waveform";
     if (paramID == auralis::params::osc1DetuneCents) return "Osc 1 Detune (cents)";
+    if (paramID == auralis::params::osc2Waveform) return "Osc 2 Waveform";
+    if (paramID == auralis::params::osc2DetuneCents) return "Osc 2 Detune (cents)";
+    if (paramID == auralis::params::oscMix) return "Osc Mix";
     if (paramID == auralis::params::filterCutoffHz) return "Filter Cutoff (Hz)";
     if (paramID == auralis::params::filterResonance) return "Filter Resonance";
     if (paramID == auralis::params::envAttackMs) return "Amp Attack (ms)";
@@ -38,6 +45,7 @@ inline juce::String getParameterName(const juce::String& paramID)
     if (paramID == auralis::params::envSustain) return "Amp Sustain";
     if (paramID == auralis::params::envReleaseMs) return "Amp Release (ms)";
     if (paramID == auralis::params::lfoRateHz) return "LFO Rate (Hz)";
+    if (paramID == auralis::params::lfoDepthHz) return "LFO Depth (Hz)";
     if (paramID == auralis::params::reverbMix) return "Reverb Mix";
 
     return paramID;

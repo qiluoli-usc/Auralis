@@ -1,6 +1,9 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+
+#include "Dsp/Synth/AuralisVoice.h"
 
 class AuralisAudioProcessor : public juce::AudioProcessor
 {
@@ -49,6 +52,14 @@ public:
 
 private:
     juce::AudioProcessorValueTreeState parameters;
+    auralis::dsp::ParameterState parameterState;
+
+    juce::Synthesiser synth;
+    juce::dsp::Reverb reverb;
+    juce::AudioBuffer<float> reverbBuffer;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> reverbMixSmoother;
+
+    bool isPrepared = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AuralisAudioProcessor)
 };

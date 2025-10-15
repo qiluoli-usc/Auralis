@@ -18,9 +18,11 @@ AuralisAudioProcessorEditor::AuralisAudioProcessorEditor(AuralisAudioProcessor& 
 {
     setSize(640, 420);
 
-    initialiseWaveformControl();
+    initialiseWaveformControls();
 
-    addSliderControl(auralis::params::osc1DetuneCents, "Detune (cents)");
+    addSliderControl(auralis::params::osc1DetuneCents, "Osc 1 Detune (cents)");
+    addSliderControl(auralis::params::osc2DetuneCents, "Osc 2 Detune (cents)");
+    addSliderControl(auralis::params::oscMix, "Osc Mix");
     addSliderControl(auralis::params::filterCutoffHz, "Cutoff (Hz)");
     addSliderControl(auralis::params::filterResonance, "Resonance");
     addSliderControl(auralis::params::envAttackMs, "Attack (ms)");
@@ -28,26 +30,39 @@ AuralisAudioProcessorEditor::AuralisAudioProcessorEditor(AuralisAudioProcessor& 
     addSliderControl(auralis::params::envSustain, "Sustain");
     addSliderControl(auralis::params::envReleaseMs, "Release (ms)");
     addSliderControl(auralis::params::lfoRateHz, "LFO Rate (Hz)");
+    addSliderControl(auralis::params::lfoDepthHz, "LFO Depth (Hz)");
     addSliderControl(auralis::params::reverbMix, "Reverb Mix");
 
     initialisePresetMenu();
 }
 
-void AuralisAudioProcessorEditor::initialiseWaveformControl()
+void AuralisAudioProcessorEditor::initialiseWaveformControls()
 {
-    waveformLabel.setText("Waveform", juce::dontSendNotification);
-    waveformLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(waveformLabel);
+    auto configureWaveformBox = [](juce::ComboBox& box)
+    {
+        box.addItem("Sine", 1);
+        box.addItem("Saw", 2);
+        box.addItem("Square", 3);
+        box.addItem("Triangle", 4);
+    };
 
-    waveformBox.addItem("Sine", 1);
-    waveformBox.addItem("Saw", 2);
-    waveformBox.addItem("Square", 3);
-    waveformBox.addItem("Triangle", 4);
+    osc1WaveformLabel.setText("Osc 1 Waveform", juce::dontSendNotification);
+    osc1WaveformLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(osc1WaveformLabel);
 
-    waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-        processorRef.getValueTreeState(), auralis::params::osc1Waveform, waveformBox);
+    configureWaveformBox(osc1WaveformBox);
+    osc1WaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processorRef.getValueTreeState(), auralis::params::osc1Waveform, osc1WaveformBox);
+    addAndMakeVisible(osc1WaveformBox);
 
-    addAndMakeVisible(waveformBox);
+    osc2WaveformLabel.setText("Osc 2 Waveform", juce::dontSendNotification);
+    osc2WaveformLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(osc2WaveformLabel);
+
+    configureWaveformBox(osc2WaveformBox);
+    osc2WaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        processorRef.getValueTreeState(), auralis::params::osc2Waveform, osc2WaveformBox);
+    addAndMakeVisible(osc2WaveformBox);
 }
 
 void AuralisAudioProcessorEditor::initialisePresetMenu()
@@ -128,9 +143,15 @@ void AuralisAudioProcessorEditor::resized()
     presetLabel.setBounds(presetArea.removeFromLeft(80));
     presetMenu.setBounds(presetArea.reduced(10, 15));
 
-    auto waveformArea = header.removeFromLeft(200);
-    waveformLabel.setBounds(waveformArea.removeFromTop(20));
-    waveformBox.setBounds(waveformArea.removeFromTop(30));
+    auto waveformArea = header.removeFromLeft(280);
+    auto osc1Area = waveformArea.removeFromLeft(waveformArea.getWidth() / 2);
+    auto osc2Area = waveformArea;
+
+    osc1WaveformLabel.setBounds(osc1Area.removeFromTop(20));
+    osc1WaveformBox.setBounds(osc1Area.removeFromTop(30));
+
+    osc2WaveformLabel.setBounds(osc2Area.removeFromTop(20));
+    osc2WaveformBox.setBounds(osc2Area.removeFromTop(30));
 
     const int columns = 4;
     const int rows = static_cast<int>((sliderControls.size() + columns - 1) / columns);

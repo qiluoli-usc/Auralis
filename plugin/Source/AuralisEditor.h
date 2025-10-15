@@ -27,9 +27,12 @@ private:
 
     AuralisAudioProcessor& processorRef;
 
-    juce::ComboBox waveformBox;
-    juce::Label waveformLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
+    juce::ComboBox osc1WaveformBox;
+    juce::ComboBox osc2WaveformBox;
+    juce::Label osc1WaveformLabel;
+    juce::Label osc2WaveformLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc1WaveformAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc2WaveformAttachment;
 
     juce::ComboBox presetMenu;
     juce::Label presetLabel;
@@ -38,7 +41,7 @@ private:
 
     SliderControl& addSliderControl(const juce::String& parameterID, const juce::String& labelText);
     void configureSlider(juce::Slider& slider);
-    void initialiseWaveformControl();
+    void initialiseWaveformControls();
     void initialisePresetMenu();
 
     void handlePresetSelection(int selectionID);
