@@ -1,7 +1,159 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AuralisPatch",
   "type": "object",
-  "properties": {},
-  "required": []
+  "properties": {
+    "oscillators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "waveform": {
+            "type": "string",
+            "enum": ["sine", "saw", "square", "triangle", "noise"]
+          },
+          "detune_cents": {
+            "type": "number",
+            "minimum": -100,
+            "maximum": 100
+          },
+          "semi_offset": {
+            "type": "integer",
+            "minimum": -24,
+            "maximum": 24
+          },
+          "level": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": ["waveform", "level"]
+      }
+    },
+    "filter": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["lp", "hp", "bp", "ladder_lp"]
+        },
+        "cutoff_hz": {
+          "type": "number",
+          "minimum": 20,
+          "maximum": 20000
+        },
+        "resonance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "drive": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["type", "cutoff_hz", "resonance"]
+    },
+    "env": {
+      "type": "object",
+      "properties": {
+        "amp": {
+          "type": "object",
+          "properties": {
+            "attack_ms": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5000
+            },
+            "decay_ms": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5000
+            },
+            "sustain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "release_ms": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000
+            }
+          },
+          "required": ["attack_ms", "decay_ms", "sustain", "release_ms"]
+        }
+      }
+    },
+    "lfo": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rate_hz": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 30
+          },
+          "shape": {
+            "type": "string",
+            "enum": ["sine", "triangle", "saw", "square", "random"]
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "param": { "type": "string" },
+                "depth": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": ["param", "depth"]
+            }
+          }
+        },
+        "required": ["rate_hz", "shape"]
+      }
+    },
+    "fx": {
+      "type": "object",
+      "properties": {
+        "chorus": { "type": "object" },
+        "delay": { "type": "object" },
+        "reverb": {
+          "type": "object",
+          "properties": {
+            "mix": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "bpm": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 300
+        },
+        "seed": { "type": "integer" },
+        "model": { "type": "string" },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        }
+      }
+    }
+  },
+  "required": ["oscillators", "filter", "env"]
 }
